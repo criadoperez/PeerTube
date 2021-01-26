@@ -179,6 +179,12 @@ const REPEAT_JOBS: { [ id: string ]: EveryRepeatOptions | CronRepeatOptions } = 
     cron: randomInt(1, 20) + ' * * * *' // Between 1-20 minutes past the hour
   }
 }
+const JOB_PRIORITY = {
+  TRANSCODING: {
+    OPTIMIZER: 10,
+    NEW_RESOLUTION: 100
+  }
+}
 
 const BROADCAST_CONCURRENCY = 10 // How many requests in parallel we do in activitypub-http-broadcast job
 const CRAWL_REQUEST_CONCURRENCY = 1 // How many requests in parallel to fetch remote data (likes, shares...)
@@ -258,7 +264,7 @@ const CONSTRAINTS_FIELDS = {
     DESCRIPTION: { min: 3, max: 10000 }, // Length
     SUPPORT: { min: 3, max: 1000 }, // Length
     IMAGE: {
-      EXTNAME: [ '.jpg', '.jpeg' ],
+      EXTNAME: [ '.png', '.jpg', '.jpeg', '.webp' ],
       FILE_SIZE: {
         max: 2 * 1024 * 1024 // 2MB
       }
@@ -268,8 +274,6 @@ const CONSTRAINTS_FIELDS = {
     DURATION: { min: 0 }, // Number
     TAGS: { min: 0, max: 5 }, // Number of total tags
     TAG: { min: 2, max: 30 }, // Length
-    THUMBNAIL: { min: 2, max: 30 },
-    THUMBNAIL_DATA: { min: 0, max: 20000 }, // Bytes
     VIEWS: { min: 0 },
     LIKES: { min: 0 },
     DISLIKES: { min: 0 },
@@ -292,7 +296,7 @@ const CONSTRAINTS_FIELDS = {
     PRIVATE_KEY: { min: 10, max: 5000 }, // Length
     URL: { min: 3, max: 2000 }, // Length
     AVATAR: {
-      EXTNAME: [ '.png', '.jpeg', '.jpg', '.gif' ],
+      EXTNAME: [ '.png', '.jpeg', '.jpg', '.gif', '.webp' ],
       FILE_SIZE: {
         max: 2 * 1024 * 1024 // 2MB
       }
@@ -356,8 +360,11 @@ const VIDEO_RATE_TYPES: { [ id: string ]: VideoRateType } = {
 }
 
 const FFMPEG_NICE: { [ id: string ]: number } = {
-  THUMBNAIL: 2, // 2 just for don't blocking servers
-  TRANSCODING: 15
+  // parent process defaults to niceness = 0
+  // reminder: lower = higher priority, max value is 19, lowest is -20
+  THUMBNAIL: 2, // low value in order to avoid blocking server
+  LIVE: 9, // prioritize over VOD
+  VOD: 15
 }
 
 const VIDEO_CATEGORIES = {
@@ -741,6 +748,7 @@ if (isTestInstance() === true) {
   ACTIVITY_PUB.VIDEO_PLAYLIST_REFRESH_INTERVAL = 10 * 1000 // 10 seconds
 
   CONSTRAINTS_FIELDS.ACTORS.AVATAR.FILE_SIZE.max = 100 * 1024 // 100KB
+  CONSTRAINTS_FIELDS.VIDEOS.IMAGE.FILE_SIZE.max = 400 * 1024 // 400KB
 
   SCHEDULER_INTERVALS_MS.actorFollowScores = 1000
   SCHEDULER_INTERVALS_MS.removeOldJobs = 10000
@@ -848,6 +856,7 @@ export {
   VIDEO_STATES,
   QUEUE_CONCURRENCY,
   VIDEO_RATE_TYPES,
+  JOB_PRIORITY,
   VIDEO_TRANSCODING_FPS,
   FFMPEG_NICE,
   ABUSE_STATES,

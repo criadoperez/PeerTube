@@ -129,6 +129,7 @@ import { VideoShareModel } from './video-share'
 import { VideoStreamingPlaylistModel } from './video-streaming-playlist'
 import { VideoTagModel } from './video-tag'
 import { VideoViewModel } from './video-view'
+import { UserModel } from '../account/user'
 
 export enum ScopeNames {
   AVAILABLE_FOR_LIST_IDS = 'AVAILABLE_FOR_LIST_IDS',
@@ -1004,13 +1005,15 @@ export class VideoModel extends Model {
     return result.map(v => v.id)
   }
 
-  static listUserVideosForApi (
-    accountId: number,
-    start: number,
-    count: number,
-    sort: string,
+  static listUserVideosForApi (options: {
+    accountId: number
+    start: number
+    count: number
+    sort: string
     search?: string
-  ) {
+  }) {
+    const { accountId, start, count, sort, search } = options
+
     function buildBaseQuery (): FindOptions {
       let baseQuery = {
         offset: start,
@@ -1087,6 +1090,7 @@ export class VideoModel extends Model {
     user?: MUserAccountId
     historyOfUser?: MUserId
     countVideos?: boolean
+    search?: string
   }) {
     if ((options.filter === 'all-local' || options.filter === 'all') && !options.user.hasRight(UserRight.SEE_ALL_VIDEOS)) {
       throw new Error('Try to filter all-local but no user has not the see all videos right')
@@ -1123,7 +1127,8 @@ export class VideoModel extends Model {
       includeLocalVideos: options.includeLocalVideos,
       user: options.user,
       historyOfUser: options.historyOfUser,
-      trendingDays
+      trendingDays,
+      search: options.search
     }
 
     return VideoModel.getAvailableForApi(queryOptions, options.countVideos)
@@ -1192,6 +1197,39 @@ export class VideoModel extends Model {
     }
 
     return VideoModel.count(options)
+  }
+
+  static countVideosUploadedByUserSince (userId: number, since: Date) {
+    const options = {
+      include: [
+        {
+          model: VideoChannelModel.unscoped(),
+          required: true,
+          include: [
+            {
+              model: AccountModel.unscoped(),
+              required: true,
+              include: [
+                {
+                  model: UserModel.unscoped(),
+                  required: true,
+                  where: {
+                    id: userId
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      where: {
+        createdAt: {
+          [Op.gte]: since
+        }
+      }
+    }
+
+    return VideoModel.unscoped().count(options)
   }
 
   static countLivesOfAccount (accountId: number) {
@@ -1731,6 +1769,7 @@ export class VideoModel extends Model {
   }
 
   getQualityFileBy<T extends MVideoWithFile> (this: T, fun: (files: MVideoFile[], it: (file: MVideoFile) => number) => MVideoFile) {
+    // We first transcode to WebTorrent format, so try this array first
     if (Array.isArray(this.VideoFiles) && this.VideoFiles.length !== 0) {
       const file = fun(this.VideoFiles, file => file.resolution)
 
@@ -1763,6 +1802,10 @@ export class VideoModel extends Model {
     if (!file) return undefined
 
     return Object.assign(file, { Video: this })
+  }
+
+  hasWebTorrentFiles () {
+    return Array.isArray(this.VideoFiles) === true && this.VideoFiles.length !== 0
   }
 
   async addAndSaveThumbnail (thumbnail: MThumbnail, transaction: Transaction) {

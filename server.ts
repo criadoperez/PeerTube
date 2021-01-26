@@ -158,7 +158,8 @@ morgan.token('user-agent', (req: express.Request) => {
   return req.get('user-agent')
 })
 app.use(morgan('combined', {
-  stream: { write: logger.info.bind(logger) }
+  stream: { write: logger.info.bind(logger) },
+  skip: req => CONFIG.LOG.LOG_PING_REQUESTS === false && req.originalUrl === '/api/v1/ping'
 }))
 
 // For body requests

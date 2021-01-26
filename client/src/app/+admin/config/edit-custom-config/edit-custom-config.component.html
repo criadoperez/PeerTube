@@ -753,7 +753,7 @@
                           i18n-labelText labelText="Allow additional extensions"
                         >
                           <ng-container ngProjectAs="description">
-                            <span i18n>Allows users to upload .mkv, .mov, .avi, .wmv, .flv, .f4v, .3g2, .3gp, .mts, m2ts, .mxf, or .nut videos.</span>
+                            <span i18n>Allows users to upload .mkv, .mov, .avi, .wmv, .flv, .f4v, .3g2, .3gp, .mts, .m2ts, .mxf, or .nut videos.</span>
                           </ng-container>
                         </my-peertube-checkbox>
                       </div>
@@ -833,6 +833,10 @@
                                 </ng-template>
                               </my-peertube-checkbox>
                             </div>
+
+                            <span class="mb-2 text-muted" i18n>
+                              The original file resolution will be the default target if no option is selected.
+                            </span>
                           </ng-container>
                         </div>
                       </div>
