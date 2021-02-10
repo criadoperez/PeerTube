@@ -14,7 +14,7 @@ import { VideoFileModel } from '../models/video/video-file'
 import { VideoStreamingPlaylistModel } from '../models/video/video-streaming-playlist'
 import { updateMasterHLSPlaylist, updateSha256VODSegments } from './hls'
 import { generateVideoStreamingPlaylistName, getVideoFilename, getVideoFilePath } from './video-paths'
-import { availableEncoders } from './video-transcoding-profiles'
+import { VideoTranscodingProfilesManager } from './video-transcoding-profiles'
 
 /**
  *
@@ -41,8 +41,8 @@ async function optimizeOriginalVideofile (video: MVideoWithFile, inputVideoFile:
     inputPath: videoInputPath,
     outputPath: videoTranscodedPath,
 
-    availableEncoders,
-    profile: 'default',
+    availableEncoders: VideoTranscodingProfilesManager.Instance.getAvailableEncoders(),
+    profile: CONFIG.TRANSCODING.PROFILE,
 
     resolution: inputVideoFile.resolution,
 
@@ -95,8 +95,8 @@ async function transcodeNewWebTorrentResolution (video: MVideoWithFile, resoluti
       inputPath: videoInputPath,
       outputPath: videoTranscodedPath,
 
-      availableEncoders,
-      profile: 'default',
+      availableEncoders: VideoTranscodingProfilesManager.Instance.getAvailableEncoders(),
+      profile: CONFIG.TRANSCODING.PROFILE,
 
       resolution,
 
@@ -107,8 +107,8 @@ async function transcodeNewWebTorrentResolution (video: MVideoWithFile, resoluti
       inputPath: videoInputPath,
       outputPath: videoTranscodedPath,
 
-      availableEncoders,
-      profile: 'default',
+      availableEncoders: VideoTranscodingProfilesManager.Instance.getAvailableEncoders(),
+      profile: CONFIG.TRANSCODING.PROFILE,
 
       resolution,
       isPortraitMode: isPortrait,
@@ -142,8 +142,8 @@ async function mergeAudioVideofile (video: MVideoWithAllFiles, resolution: Video
     inputPath: tmpPreviewPath,
     outputPath: videoTranscodedPath,
 
-    availableEncoders,
-    profile: 'default',
+    availableEncoders: VideoTranscodingProfilesManager.Instance.getAvailableEncoders(),
+    profile: CONFIG.TRANSCODING.PROFILE,
 
     audioPath: audioInputPath,
     resolution,
@@ -270,21 +270,23 @@ async function generateHlsPlaylistCommon (options: {
   job?: Job
 }) {
   const { type, video, inputPath, resolution, copyCodecs, isPortraitMode, isAAC, job } = options
+  const transcodeDirectory = CONFIG.STORAGE.TMP_DIR
 
-  const baseHlsDirectory = join(HLS_STREAMING_PLAYLIST_DIRECTORY, video.uuid)
-  await ensureDir(join(HLS_STREAMING_PLAYLIST_DIRECTORY, video.uuid))
+  const videoTranscodedBasePath = join(transcodeDirectory, type)
+  await ensureDir(videoTranscodedBasePath)
 
-  const outputPath = join(baseHlsDirectory, VideoStreamingPlaylistModel.getHlsPlaylistFilename(resolution))
   const videoFilename = generateVideoStreamingPlaylistName(video.uuid, resolution)
+  const playlistFilename = VideoStreamingPlaylistModel.getHlsPlaylistFilename(resolution)
+  const playlistFileTranscodePath = join(videoTranscodedBasePath, playlistFilename)
 
   const transcodeOptions = {
     type,
 
     inputPath,
-    outputPath,
+    outputPath: playlistFileTranscodePath,
 
-    availableEncoders,
-    profile: 'default',
+    availableEncoders: VideoTranscodingProfilesManager.Instance.getAvailableEncoders(),
+    profile: CONFIG.TRANSCODING.PROFILE,
 
     resolution,
     copyCodecs,
@@ -303,6 +305,7 @@ async function generateHlsPlaylistCommon (options: {
 
   const playlistUrl = WEBSERVER.URL + VideoStreamingPlaylistModel.getHlsMasterPlaylistStaticPath(video.uuid)
 
+  // Create or update the playlist
   const [ videoStreamingPlaylist ] = await VideoStreamingPlaylistModel.upsert({
     videoId: video.id,
     playlistUrl,
@@ -314,6 +317,7 @@ async function generateHlsPlaylistCommon (options: {
   }, { returning: true }) as [ MStreamingPlaylistFilesVideo, boolean ]
   videoStreamingPlaylist.Video = video
 
+  // Build the new playlist file
   const newVideoFile = new VideoFileModel({
     resolution,
     extname: extnameUtil(videoFilename),
@@ -323,6 +327,17 @@ async function generateHlsPlaylistCommon (options: {
   })
 
   const videoFilePath = getVideoFilePath(videoStreamingPlaylist, newVideoFile)
+
+  // Move files from tmp transcoded directory to the appropriate place
+  const baseHlsDirectory = join(HLS_STREAMING_PLAYLIST_DIRECTORY, video.uuid)
+  await ensureDir(baseHlsDirectory)
+
+  // Move playlist file
+  const playlistPath = join(baseHlsDirectory, playlistFilename)
+  await move(playlistFileTranscodePath, playlistPath, { overwrite: true })
+  // Move video file
+  await move(join(videoTranscodedBasePath, videoFilename), videoFilePath, { overwrite: true })
+
   const stats = await stat(videoFilePath)
 
   newVideoFile.size = stats.size
@@ -344,5 +359,5 @@ async function generateHlsPlaylistCommon (options: {
   await updateMasterHLSPlaylist(video)
   await updateSha256VODSegments(video)
 
-  return outputPath
+  return playlistPath
 }

@@ -71,6 +71,7 @@ transcoding:
   allow_additional_extensions: false
   allow_audio_files: false
   threads: 2
+  concurrency: 2
   resolutions:
     0p: false
     240p: true
@@ -85,6 +86,8 @@ transcoding:
 
 live:
   enabled: false
+
+  allow_replay: false
 
   rtmp:
     port: 1935
@@ -104,6 +107,7 @@ live:
 
 import:
   videos:
+    concurrency: 2
     http:
       enabled: true
       proxy:

@@ -1,9 +1,10 @@
 import { of } from 'rxjs'
 import { map, switchMap } from 'rxjs/operators'
+import { SelectChannelItem } from 'src/types/select-options-item.model'
 import { Component, HostListener, OnInit } from '@angular/core'
 import { ActivatedRoute, Router } from '@angular/router'
 import { Notifier } from '@app/core'
-import { FormReactive, FormValidatorService, SelectChannelItem } from '@app/shared/shared-forms'
+import { FormReactive, FormValidatorService } from '@app/shared/shared-forms'
 import { VideoCaptionEdit, VideoCaptionService, VideoDetails, VideoEdit, VideoService } from '@app/shared/shared-main'
 import { LiveVideoService } from '@app/shared/shared-video-live'
 import { LoadingBarService } from '@ngx-loading-bar/core'
@@ -137,12 +138,9 @@ export class VideoUpdateComponent extends FormReactive implements OnInit {
             if (!this.liveVideo) return of(undefined)
 
             const liveVideoUpdate: LiveVideoUpdate = {
-              saveReplay: this.form.value.saveReplay,
-              permanentLive: this.form.value.permanentLive
+              saveReplay: !!this.form.value.saveReplay,
+              permanentLive: !!this.form.value.permanentLive
             }
-
-            console.log(liveVideoUpdate)
-            console.log(this.form.value)
 
             // Don't update live attributes if they did not change
             const liveChanged = Object.keys(liveVideoUpdate)

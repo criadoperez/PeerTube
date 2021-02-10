@@ -27,6 +27,14 @@ function getLoggerReplacer () {
       seen.add(value)
     }
 
+    if (value instanceof Set) {
+      return Array.from(value)
+    }
+
+    if (value instanceof Map) {
+      return Array.from(value.entries())
+    }
+
     if (value instanceof Error) {
       const error = {}
 
@@ -53,7 +61,7 @@ const consoleLoggerFormat = winston.format.printf(info => {
     if (CONFIG.LOG.PRETTIFY_SQL) {
       additionalInfos += '\n' + sqlFormat(info.sql, {
         language: 'sql',
-        ident: '  '
+        indent: '  '
       })
     } else {
       additionalInfos += ' - ' + info.sql

@@ -72,7 +72,7 @@ const SORTABLE_COLUMNS = {
   FOLLOWERS: [ 'createdAt', 'state', 'score' ],
   FOLLOWING: [ 'createdAt', 'redundancyAllowed', 'state' ],
 
-  VIDEOS: [ 'name', 'duration', 'createdAt', 'publishedAt', 'originallyPublishedAt', 'views', 'likes', 'trending' ],
+  VIDEOS: [ 'name', 'duration', 'createdAt', 'publishedAt', 'originallyPublishedAt', 'views', 'likes', 'trending', 'hot', 'best' ],
 
   // Don't forget to update peertube-search-index with the same values
   VIDEOS_SEARCH: [ 'name', 'duration', 'createdAt', 'publishedAt', 'originallyPublishedAt', 'views', 'likes', 'match' ],
@@ -146,14 +146,12 @@ const JOB_ATTEMPTS: { [id in JobType]: number } = {
   'video-redundancy': 1,
   'video-live-ending': 1
 }
-const JOB_CONCURRENCY: { [id in JobType]: number } = {
+const JOB_CONCURRENCY: { [id in JobType]?: number } = {
   'activitypub-http-broadcast': 1,
   'activitypub-http-unicast': 5,
   'activitypub-http-fetcher': 1,
   'activitypub-follow': 1,
   'video-file-import': 1,
-  'video-transcoding': 1,
-  'video-import': 1,
   'email': 5,
   'videos-views': 1,
   'activitypub-refresher': 1,
@@ -341,17 +339,6 @@ const VIDEO_TRANSCODING_FPS: VideoTranscodingFPS = {
   KEEP_ORIGIN_FPS_RESOLUTION_MIN: 720 // We keep the original FPS on high resolutions (720 minimum)
 }
 
-const VIDEO_TRANSCODING_ENCODERS = {
-  VIDEO: [ 'libx264' ],
-
-  // Try the first one, if not available try the second one etc
-  AUDIO: [
-    // we favor VBR, if a good AAC encoder is available
-    'libfdk_aac',
-    'aac'
-  ]
-}
-
 const DEFAULT_AUDIO_RESOLUTION = VideoResolution.H_480P
 
 const VIDEO_RATE_TYPES: { [ id: string ]: VideoRateType } = {
@@ -362,8 +349,8 @@ const VIDEO_RATE_TYPES: { [ id: string ]: VideoRateType } = {
 const FFMPEG_NICE: { [ id: string ]: number } = {
   // parent process defaults to niceness = 0
   // reminder: lower = higher priority, max value is 19, lowest is -20
-  THUMBNAIL: 2, // low value in order to avoid blocking server
-  LIVE: 9, // prioritize over VOD
+  LIVE: 5, // prioritize over VOD and THUMBNAIL
+  THUMBNAIL: 10,
   VOD: 15
 }
 
@@ -644,6 +631,7 @@ const VIDEO_LIVE = {
   SEGMENTS_LIST_SIZE: 15, // 15 maximum segments in live playlist
   REPLAY_DIRECTORY: 'replay',
   EDGE_LIVE_DELAY_SEGMENTS_NOTIFICATION: 4,
+  MAX_SOCKET_WAITING_DATA: 1024 * 1000 * 100, // 100MB
   RTMP: {
     CHUNK_SIZE: 60000,
     GOP_CACHE: true,
@@ -656,7 +644,8 @@ const VIDEO_LIVE = {
 const MEMOIZE_TTL = {
   OVERVIEWS_SAMPLE: 1000 * 3600 * 4, // 4 hours
   INFO_HASH_EXISTS: 1000 * 3600 * 12, // 12 hours
-  LIVE_ABLE_TO_UPLOAD: 1000 * 60 // 1 minute
+  LIVE_ABLE_TO_UPLOAD: 1000 * 60, // 1 minute
+  LIVE_CHECK_SOCKET_HEALTH: 1000 * 60 // 1 minute
 }
 
 const MEMOIZE_LENGTH = {
@@ -826,7 +815,6 @@ export {
   ACTOR_FOLLOW_SCORE,
   PREVIEWS_SIZE,
   REMOTE_SCHEME,
-  VIDEO_TRANSCODING_ENCODERS,
   FOLLOW_STATES,
   DEFAULT_USER_THEME_NAME,
   SERVER_ACTOR_NAME,
